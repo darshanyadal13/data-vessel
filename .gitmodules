@@ -1,0 +1,3 @@
+[submodule "backend/user-service"]
+	path = backend/user-service
+	url = https://github.com/darshanyadal13/user-service.git
