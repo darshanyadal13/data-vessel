@@ -81,6 +81,13 @@ public class FileController {
         return new ResponseEntity<>(response, HttpStatus.valueOf(response.getStatusCode()));
     }
 
+    @DeleteMapping("/folder/{id}")
+    public ResponseEntity<ResponseStructure<String>> deleteFolder(@PathVariable Long id) {
+        Long userId = getCurrentUserId();
+        ResponseStructure<String> response = fileService.deleteFolder(id, userId);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
     @PutMapping("/rename/{id}")
     public ResponseEntity<ResponseStructure<String>> renameFile(
             @PathVariable Long id,
