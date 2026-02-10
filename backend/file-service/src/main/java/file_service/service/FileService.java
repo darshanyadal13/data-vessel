@@ -114,6 +114,29 @@ public class FileService {
         return response;
     }
 
+    public ResponseStructure<String> deleteFolder(Long folderId, Long userId) {
+        ResponseStructure<String> response = new ResponseStructure<>();
+        Optional<Folder> folderOpt = folderRepository.findById(folderId);
+        
+        if (folderOpt.isEmpty()) {
+            response.setMessage("Folder not found");
+            response.setStatusCode(HttpStatus.NOT_FOUND.value());
+            return response;
+        }
+        
+        Folder folder = folderOpt.get();
+        if (!folder.getOwnerId().equals(userId)) {
+            response.setMessage("Unauthorized to delete this folder");
+            response.setStatusCode(HttpStatus.FORBIDDEN.value());
+            return response;
+        }
+        
+        folderRepository.delete(folder);
+        response.setMessage("Folder deleted successfully");
+        response.setStatusCode(HttpStatus.OK.value());
+        return response;
+    }
+
     public ResponseStructure<String> renameFile(Long fileId, String newName, Long userId) {
         ResponseStructure<String> response = new ResponseStructure<>();
         Optional<FileMetadata> fileOpt = fileMetadataRepository.findById(fileId);
