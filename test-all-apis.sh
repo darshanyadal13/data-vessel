@@ -74,6 +74,11 @@ ADMIN_TOKEN=""
 FILE_ID=""
 FOLDER_ID=""
 
+# Generate unique username with timestamp
+TIMESTAMP=$(date +%s)
+TEST_USER="testuser${TIMESTAMP}"
+TEST_USER2="testuser2${TIMESTAMP}"
+
 print_header "DATA VESSEL API TEST SUITE"
 
 # ============================================
@@ -86,8 +91,8 @@ echo -e "${YELLOW}Test 1: Register New User${NC}"
 REGISTER_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/auth/register" \
     -H "Content-Type: application/json" \
     -d '{
-        "username": "testuser1",
-        "email": "testuser1@test.com",
+        "username": "'"$TEST_USER"'",
+        "email": "'"$TEST_USER"'@test.com",
         "password": "Test@123"
     }')
 
@@ -109,8 +114,8 @@ echo -e "${YELLOW}Test 2: Register Second User${NC}"
 REGISTER_RESPONSE2=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/auth/register" \
     -H "Content-Type: application/json" \
     -d '{
-        "username": "testuser2",
-        "email": "testuser2@test.com",
+        "username": "'"$TEST_USER2"'",
+        "email": "'"$TEST_USER2"'@test.com",
         "password": "Test@123"
     }')
 
@@ -132,7 +137,7 @@ echo -e "${YELLOW}Test 3: User Login${NC}"
 LOGIN_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/auth/login" \
     -H "Content-Type: application/json" \
     -d '{
-        "username": "testuser1",
+        "username": "'"$TEST_USER"'",
         "password": "Test@123"
     }')
 
@@ -221,7 +226,7 @@ fi
 echo -e "${YELLOW}Re-authenticating for remaining tests...${NC}"
 LOGIN_RESPONSE=$(curl -s -X POST "$BASE_URL/api/auth/login" \
     -H "Content-Type: application/json" \
-    -d '{"username": "testuser1", "password": "Test@123"}')
+    -d '{"username": "'"$TEST_USER"'", "password": "Test@123"}')
 USER_TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
 echo "Token: ${USER_TOKEN:0:30}...\n"
 
@@ -233,12 +238,12 @@ print_header "2. FILE SERVICE - File Management"
 # Test 7: Create a folder
 if [ -n "$USER_TOKEN" ]; then
     echo -e "${YELLOW}Test 7: Create Folder${NC}"
-    FOLDER_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/files/folder" \
+    FOLDER_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/files/folder/create" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $USER_TOKEN" \
         -d '{
             "name": "My Test Folder",
-            "parentFolderId": null
+            "parentId": null
         }')
     
     HTTP_CODE=$(echo "$FOLDER_RESPONSE" | tail -n 1)
@@ -287,7 +292,7 @@ fi
 # Test 9: List user files
 if [ -n "$USER_TOKEN" ]; then
     echo -e "${YELLOW}Test 9: List User Files${NC}"
-    LIST_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "$BASE_URL/api/files/list" \
+    LIST_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "$BASE_URL/api/files" \
         -H "Authorization: Bearer $USER_TOKEN")
     
     HTTP_CODE=$(echo "$LIST_RESPONSE" | tail -n 1)
@@ -327,12 +332,12 @@ fi
 # Test 11: Share a file
 if [ -n "$USER_TOKEN" ] && [ -n "$FILE_ID" ]; then
     echo -e "${YELLOW}Test 11: Share File with Another User${NC}"
-    SHARE_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/files/share" \
+    SHARE_RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT "$BASE_URL/api/files/share" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $USER_TOKEN" \
         -d "{
             \"fileId\": $FILE_ID,
-            \"sharedWithUsername\": \"testuser2\",
+            \"sharedWithUsername\": \"'"$TEST_USER2"'\",
             \"permission\": \"READ\"
         }")
     
@@ -394,12 +399,22 @@ fi
 # ============================================
 print_header "3. ADMIN SERVICE - Administration & Monitoring"
 
-# Register admin user (assuming you have one in database)
-echo -e "${YELLOW}Test 14: Admin Login${NC}"
+# Register and login as admin user
+echo -e "${YELLOW}Test 14: Admin User Setup & Login${NC}"
+# First register an admin user
+ADMIN_REG=$(curl -s -X POST "$BASE_URL/api/auth/register" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "username": "admin'"${TIMESTAMP}"'",
+        "email": "admin'"${TIMESTAMP}"'@test.com",
+        "password": "Root@123"
+    }')
+
+# Then login to get admin token
 ADMIN_LOGIN=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/auth/login" \
     -H "Content-Type: application/json" \
     -d '{
-        "username": "prasad",
+        "username": "admin'"${TIMESTAMP}"'",
         "password": "Root@123"
     }')
 
@@ -460,7 +475,7 @@ fi
 # Test 17: Get audit logs
 if [ -n "$ADMIN_TOKEN" ]; then
     echo -e "${YELLOW}Test 17: Get Audit Logs${NC}"
-    AUDIT_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "$BASE_URL/api/admin/audit-logs" \
+    AUDIT_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "$BASE_URL/api/admin/logs" \
         -H "Authorization: Bearer $ADMIN_TOKEN")
     
     HTTP_CODE=$(echo "$AUDIT_RESPONSE" | tail -n 1)
@@ -485,13 +500,14 @@ print_header "4. NOTIFICATION SERVICE - Email Notifications"
 # Test 18: Send test notification
 if [ -n "$USER_TOKEN" ]; then
     echo -e "${YELLOW}Test 18: Send Test Notification${NC}"
-    NOTIFY_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/notify/send" \
+    NOTIFY_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/notify/email" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $USER_TOKEN" \
         -d '{
             "to": "testuser1@test.com",
             "subject": "Test Notification",
-            "body": "This is a test notification from Data Vessel"
+            "body": "This is a test notification from Data Vessel",
+            "isHtml": false
         }')
     
     HTTP_CODE=$(echo "$NOTIFY_RESPONSE" | tail -n 1)
